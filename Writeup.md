@@ -275,8 +275,8 @@ The benchmark naturally classifies models into three distinct **reasoning profil
 
 ### 8.1 Profile Breakdown
 
-````carousel
 ### 🔴 Retrieval / Guessing
+
 **Behavior:** Randomly pings endpoints one by one (E1, then E2, then E3...).
 
 **Why It Fails:** Each endpoint probe costs 3 turns. After just 3 guesses, the model has consumed 9 of its 10 turns — having checked only 3 of 14 possible endpoints (21% coverage).
@@ -286,9 +286,11 @@ The benchmark naturally classifies models into three distinct **reasoning profil
 **Expected Score:** 0–2 (near-total failure)
 <!-- slide -->
 ### 🟢 Systematic Deduction
+
 **Behavior:** Queries Core Hubs first to eliminate entire downstream branches, then narrows through Subnets to Endpoints — effectively executing a binary search.
 
 **Optimal Strategy:**
+
 1. `list_children` of C1 → discover which subnets are under C1 (1 turn)
 2. `check_status` of C1 → is anomaly downstream? (1 turn)
 3. `check_status` of relevant subnet (1 turn)
@@ -299,12 +301,12 @@ The benchmark naturally classifies models into three distinct **reasoning profil
 **Expected Score:** 6–8 (high cognitive efficiency)
 <!-- slide -->
 ### ⚫ Hallucination / Collapse
+
 **Behavior:** Forgets previous query results, repeats already-answered queries, produces structurally invalid actions, or submits solutions without supporting evidence.
 
 **Why It's Revealing:** This profile exposes fundamental **working memory** failures — the model cannot integrate and retain information across turns of a multi-step interaction.
 
 **Expected Score:** 0 (automatic failure)
-````
 
 ---
 
