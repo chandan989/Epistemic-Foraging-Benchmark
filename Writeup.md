@@ -12,60 +12,36 @@
 
 ## Table of Contents
 
-1. [Competition Overview](#1-competition-overview)
-2. [The Problem: Why Current Benchmarks Fail](#2-the-problem-why-current-benchmarks-fail)
-3. [Our Solution: The Black Box Diagnostic](#3-our-solution-the-black-box-diagnostic)
-4. [Environment Architecture](#4-environment-architecture)
-5. [Action Space & Turn Economy](#5-action-space--turn-economy)
-6. [Evaluation Loop](#6-evaluation-loop)
-7. [Scoring: Information Efficiency](#7-scoring-information-efficiency)
-8. [Reasoning Profiles](#8-reasoning-profiles)
-9. [Cognitive Alignment with DeepMind's AGI Framework](#9-cognitive-alignment-with-deepminds-agi-framework)
-10. [SDK Implementation](#10-sdk-implementation)
-11. [Preliminary Results](#11-preliminary-results)
-12. [Key Design Principles](#12-key-design-principles)
-13. [Conclusion](#13-conclusion)
+1. [The Problem: Why Current Benchmarks Fail](#1-the-problem-why-current-benchmarks-fail)
+2. [Our Solution: The Black Box Diagnostic](#2-our-solution-the-black-box-diagnostic)
+3. [Environment Architecture](#3-environment-architecture)
+4. [Action Space & Turn Economy](#4-action-space--turn-economy)
+5. [Evaluation Loop](#5-evaluation-loop)
+6. [Scoring: Information Efficiency](#6-scoring-information-efficiency)
+7. [Reasoning Profiles](#7-reasoning-profiles)
+8. [Cognitive Alignment with DeepMind's AGI Framework](#8-cognitive-alignment-with-deepminds-agi-framework)
+9. [SDK Implementation](#9-sdk-implementation)
+10. [Preliminary Results](#10-preliminary-results)
+11. [Key Design Principles](#11-key-design-principles)
+12. [Conclusion](#12-conclusion)
 
 ---
 
-## 1. Competition Overview
-
-The **Kaggle "Measuring Progress Toward AGI — Cognitive Abilities"** competition, co-hosted with **Google DeepMind**, challenges participants to design high-quality benchmarks that go *beyond recall* to evaluate how frontier AI models truly **reason**, **act**, and **judge**.
-
-This is not a standard model competition — participants are not training or fine-tuning models. Instead, participants are designing **evaluation instruments** that probe the cognitive capabilities of frontier AI systems. The competition seeks benchmarks that can reliably distinguish between models that genuinely *think* and models that merely *remember*.
-
-> [!IMPORTANT]
-> **Goal:** Design a novel, reproducible benchmark that evaluates frontier models on cognitive abilities — specifically targeting areas where current evaluations are weakest: active reasoning, hypothesis testing, planning under uncertainty, and cognitive flexibility.
-
-### Competition Requirements
-
-| Requirement | Details |
-|---|---|
-| **Track** | Cognitive Abilities (Executive Functions) |
-| **Submission** | Kaggle Notebook using `kaggle-benchmarks` SDK |
-| **Cost** | $0 external API calls required |
-| **Data** | No proprietary datasets allowed |
-| **Evaluation** | Benchmarks are judged on novelty, rigor, contamination-resistance, and alignment with DeepMind's AGI framework |
-| **Human Baselines** | Must be feasible to collect human comparison data |
-| **License** | Open-source (CC0 1.0 Universal) |
-
----
-
-## 2. The Problem: Why Current Benchmarks Fail
+## 1. The Problem: Why Current Benchmarks Fail
 
 Current LLM evaluations overwhelmingly measure the **product** of reasoning (crystallized knowledge) rather than the **process** of reasoning (fluid intelligence). If a model correctly answers a complex riddle, it is nearly impossible to tell whether it genuinely *deduced* the answer or simply *retrieved* a memorized solution from its vast training corpus.
 
 Our benchmark identifies and addresses **three critical blind spots** in existing AI evaluation:
 
-### 2.1 Data Contamination
+### 1.1 Data Contamination
 
 Static text-based logic puzzles, Q&A pairs, and reasoning challenges are heavily represented in pre-training data. When a model "solves" such a problem, there is no way to determine whether it applied genuine deductive reasoning or pattern-matched against a memorized solution. Even novel-seeming prompts can map to structural analogues absorbed during training.
 
-### 2.2 Passive Processing
+### 1.2 Passive Processing
 
 Models are almost universally evaluated as **Answerers** — agents given perfect, complete context and asked to respond. This fundamentally misrepresents the cognitive demands of real-world intelligence. A truly capable AI must also function as an **Interrogator** — an agent that navigates imperfect, incomplete information by deciding *what to ask*, *in what order*, and *why*.
 
-### 2.3 Conflating Syntax with Cognition
+### 1.3 Conflating Syntax with Cognition
 
 Traditional multi-turn agent benchmarks frequently penalize models for surface-level formatting failures — a missing JSON bracket, an incorrectly escaped string — rather than evaluating the underlying cognitive process. A model that reasons brilliantly but formats imperfectly scores identically to one that reasons poorly.
 
@@ -93,7 +69,7 @@ graph TD
 
 ---
 
-## 3. Our Solution: The Black Box Diagnostic
+## 2. Our Solution: The Black Box Diagnostic
 
 **The Interrogator's Dilemma** — executed via the **Black Box Diagnostic** task — shifts the paradigm entirely.
 
@@ -105,13 +81,13 @@ We measure not just *whether* the model can solve a problem, but *how efficientl
 
 ---
 
-## 4. Environment Architecture
+## 3. Environment Architecture
 
 The environment is a **20-node directed acyclic graph (DAG)**, instantiated via a lightweight, deterministic Python script at runtime upon each evaluation.
 
 ![3-Layer DAG Network Topology — The Black Box Diagnostic Environment](assets/dag_topology.png)
 
-### 4.1 Network Layers
+### 3.1 Network Layers
 
 The DAG is organized into three hierarchical layers:
 
@@ -129,7 +105,7 @@ Layer 3 — Endpoints       :  E1 – E14         (14 nodes)
 | **Subnet Switches** | S1–S4 | Intermediate routing — each connects to a Core Hub | 4 |
 | **Endpoints** | E1–E14 | Leaf nodes — one of these is the anomalous (offline) node | 14 |
 
-### 4.2 Randomization Protocol
+### 3.2 Randomization Protocol
 
 The exact connections between layers, and the identity of the single anomalous node, are **randomized on every initialization** via seed-controlled `random` calls:
 
@@ -157,14 +133,14 @@ graph LR
 
 ---
 
-## 5. Action Space & Turn Economy
+## 4. Action Space & Turn Economy
 
 Models interact with the environment over a maximum of **10 turns**. Each turn, the model may take exactly one of four actions, expressed as a JSON payload.
 
 > [!TIP]
 > Chain-of-thought reasoning is **explicitly decoupled from action execution** via regex parsing (`re.search(r'\{.*?\}', response_text, re.DOTALL)`). The model is free to reason at length in natural language before outputting its action — it is evaluated exclusively on its spatial reasoning and planning efficiency, not on perfect JSON formatting.
 
-### 5.1 Action Table
+### 4.1 Action Table
 
 | # | Action | JSON Payload | Environment Returns | Turn Cost |
 |---|--------|-------------|---|---|
@@ -173,7 +149,7 @@ Models interact with the environment over a maximum of **10 turns**. Each turn, 
 | 3 | **Test a connection** | `{"query_type": "check_connection", "target_1": "A", "target_2": "B"}` | Whether the anomaly lies along the path between nodes | **1 turn** (hubs/subnets) / **3 turns** (if endpoint involved) |
 | 4 | **Declare solution** | `{"solution": "Node_Name"}` | Pass (correct) or Fail (incorrect) — terminates episode | **1 turn** |
 
-### 5.2 Action Cost Mathematics
+### 4.2 Action Cost Mathematics
 
 > [!WARNING]
 > **Actions are not equal.** To prevent brute-force execution, actions involving endpoint nodes carry a **3× turn cost**. Under a 10-turn limit, a model blindly guessing endpoints will fail after just 3 guesses:
@@ -201,15 +177,17 @@ graph TD
     style K fill:#00cc66,color:#fff
 ```
 
+![Turn Economy — Why Strategy Matters](assets/action_cost.png)
+
 ---
 
-## 6. Evaluation Loop
+## 5. Evaluation Loop
 
 The benchmark runs as a **multi-turn conversational loop** using the `kaggle-benchmarks` SDK. Here is the complete evaluation flow:
 
 ![Epistemic Foraging Benchmark — Complete Evaluation Loop](assets/evaluation_flowchart.png)
 
-### 6.1 Episode Lifecycle
+### 5.1 Episode Lifecycle
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -228,7 +206,7 @@ The benchmark runs as a **multi-turn conversational loop** using the `kaggle-ben
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 6.2 State Management
+### 5.2 State Management
 
 | Component | Implementation |
 |---|---|
@@ -239,11 +217,11 @@ The benchmark runs as a **multi-turn conversational loop** using the `kaggle-ben
 
 ---
 
-## 7. Scoring: Information Efficiency
+## 6. Scoring: Information Efficiency
 
 We abandon standard binary pass/fail accuracy metrics entirely. The primary metric is **Information Efficiency**, grounded in the principles of **Optimal Experimental Design** and **Bayesian Active Learning**.
 
-### 7.1 The Scoring Formula
+### 6.1 The Scoring Formula
 
 ```
 Score = Max_Turns - Turns_Taken + 1    (if solved correctly)
@@ -265,15 +243,17 @@ This provides a **continuous gradient of cognitive efficiency** rather than a fl
 > [!NOTE]
 > The maximum possible score per episode is **10** (solved in 1 turn, which would require pure luck). The practical ceiling for systematic deduction is **7–8** (solved in 3–4 turns). Across 200 episodes, the aggregate mean provides a robust, statistically significant cognitive efficiency metric.
 
+![Information Efficiency — Continuous Cognitive Scoring](assets/scoring_gradient.png)
+
 ---
 
-## 8. Reasoning Profiles
+## 7. Reasoning Profiles
 
 The benchmark naturally classifies models into three distinct **reasoning profiles** — each representing a fundamentally different cognitive architecture:
 
 ![Three Reasoning Profiles: Retrieval/Guessing, Systematic Deduction, Hallucination/Collapse](assets/reasoning_profiles.png)
 
-### 8.1 Profile Breakdown
+### 7.1 Profile Breakdown
 
 ### 🔴 Retrieval / Guessing
 
@@ -310,7 +290,7 @@ The benchmark naturally classifies models into three distinct **reasoning profil
 
 ---
 
-## 9. Cognitive Alignment with DeepMind's AGI Framework
+## 8. Cognitive Alignment with DeepMind's AGI Framework
 
 The Black Box Diagnostic directly operationalizes the **Executive Function** cognitive cluster as defined in DeepMind's *Measuring Progress Toward AGI* framework, targeting **four sub-capabilities simultaneously**:
 
@@ -357,11 +337,11 @@ graph TB
 
 ---
 
-## 10. SDK Implementation
+## 9. SDK Implementation
 
 This benchmark is built natively on top of the **`kaggle-benchmarks` multi-turn conversation loop** and requires no external infrastructure.
 
-### 10.1 Technical Stack
+### 9.1 Technical Stack
 
 | Component | Implementation Detail |
 |---|---|
@@ -376,7 +356,7 @@ This benchmark is built natively on top of the **`kaggle-benchmarks` multi-turn 
 | **External Dependencies** | None — $0 in API calls, no proprietary data |
 | **License** | CC0 1.0 Universal |
 
-### 10.2 Core Code Architecture
+### 9.2 Core Code Architecture
 
 ```python
 # Task definition using Kaggle Benchmarks SDK
@@ -409,7 +389,7 @@ def epistemic_foraging_task(llm, target_node, scenario_type, seed) -> float:
 
 ---
 
-## 11. Preliminary Results
+## 10. Preliminary Results
 
 Initial evaluation using **Gemini 3 Flash (Preview)** across 5 pilot episodes:
 
@@ -433,7 +413,7 @@ Initial evaluation using **Gemini 3 Flash (Preview)** across 5 pilot episodes:
 
 ---
 
-## 12. Key Design Principles
+## 11. Key Design Principles
 
 ### A. Zero-Cost Procedural Generation (Anti-Contamination)
 
@@ -466,7 +446,7 @@ graph LR
 
 ---
 
-## 13. Conclusion
+## 12. Conclusion
 
 The **Epistemic Foraging Efficiency Benchmark** reframes AI evaluation from a question of *what does the model know?* to *how does the model search?*
 
